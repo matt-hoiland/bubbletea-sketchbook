@@ -32,15 +32,43 @@ var keys = keyMap{
 type Model struct {
 	keys keyMap
 	help help.Model
+
+	width, height int
+
+	title string
 }
 
-func New() *Model {
+type Option func(*conf)
+
+type conf struct {
+	title string
+}
+
+func New(opts ...Option) *Model {
+	c := conf{
+		title: "program",
+	}
+
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&c)
+		}
+	}
+
 	m := &Model{
 		keys: keys,
 		help: help.New(),
+
+		title: c.title,
 	}
 
 	return m
+}
+
+func WithTitle(title string) Option {
+	return func(c *conf) {
+		c.title = title
+	}
 }
 
 func (m *Model) Init() tea.Cmd {
@@ -54,16 +82,37 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.ExitProgram):
 			return m, tea.Quit
 		}
+	case tea.WindowSizeMsg:
+		m.height, m.width = msg.Height, msg.Width
 	}
 	return m, nil
 }
 
 func (m *Model) View() tea.View {
-	return tea.NewView(
+	var (
+		helpView  = m.help.View(m.keys)
+		titleView = lipgloss.NewStyle().
+				Width(m.width).
+				Background(lipgloss.Cyan).
+				Foreground(lipgloss.Black).
+				Bold(true).
+				Render(m.title)
+		windowView = lipgloss.NewStyle().
+				Width(m.width).
+				Height(m.height - lipgloss.Height(titleView) - lipgloss.Height(helpView)).
+				Render("Hello!")
+	)
+
+	v := tea.NewView(
 		lipgloss.JoinVertical(
 			lipgloss.Left,
-			"Hello!",
-			m.help.View(m.keys),
+			titleView,
+			windowView,
+			helpView,
 		),
 	)
+
+	v.AltScreen = true
+
+	return v
 }

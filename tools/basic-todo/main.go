@@ -10,7 +10,9 @@ import (
 )
 
 func main() {
-	if _, err := tea.NewProgram(window.New()).Run(); err != nil {
+	if _, err := tea.NewProgram(window.New(
+		window.WithTitle("basic-todo"),
+	)).Run(); err != nil {
 		slog.Error("program failed to start", slog.String("err", err.Error()))
 		os.Exit(1)
 	}
