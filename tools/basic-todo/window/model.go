@@ -1,11 +1,46 @@
 package window
 
-import tea "charm.land/bubbletea/v2"
+import (
+	"charm.land/bubbles/v2/help"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+)
 
-type Model struct{}
+type keyMap struct {
+	ExitProgram key.Binding
+}
+
+// FullHelp implements [help.KeyMap].
+func (k keyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{{k.ExitProgram, k.ExitProgram}}
+
+}
+
+// ShortHelp implements [help.KeyMap].
+func (k keyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.ExitProgram, k.ExitProgram}
+}
+
+var keys = keyMap{
+	ExitProgram: key.NewBinding(
+		key.WithKeys("q", "esc", "ctrl+c"),
+		key.WithHelp("q, esc, ctrl+c :", "exit"),
+	),
+}
+
+type Model struct {
+	keys keyMap
+	help help.Model
+}
 
 func New() *Model {
-	return &Model{}
+	m := &Model{
+		keys: keys,
+		help: help.New(),
+	}
+
+	return m
 }
 
 func (m *Model) Init() tea.Cmd {
@@ -15,8 +50,8 @@ func (m *Model) Init() tea.Cmd {
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "ctrl-c", "q", "esc":
+		switch {
+		case key.Matches(msg, m.keys.ExitProgram):
 			return m, tea.Quit
 		}
 	}
@@ -24,5 +59,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) View() tea.View {
-	return tea.NewView("Hello! Press q, esc, or ctrl-c to exit.")
+	return tea.NewView(
+		lipgloss.JoinVertical(
+			lipgloss.Left,
+			"Hello!",
+			m.help.View(m.keys),
+		),
+	)
 }
