@@ -17,12 +17,12 @@ func (m *Model) helpInit() tea.Cmd {
 
 	var (
 		keyStyle = s.ShortKey.
-				Foreground(lipgloss.Color("#e0c62d")).
+				Foreground(lipgloss.BrightYellow).
 				Bold(true)
 		descStyle = s.ShortKey.
-				Foreground(lipgloss.Color("#a88f1c"))
+				Foreground(lipgloss.Yellow)
 		sepStyle = s.ShortSeparator.
-				Foreground(lipgloss.Color("#e48e1e"))
+				Foreground(lipgloss.Black)
 	)
 
 	m.help.Styles = help.Styles{
