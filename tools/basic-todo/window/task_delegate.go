@@ -19,6 +19,7 @@ type taskDelegateKeyMap struct {
 	UndoTask     key.Binding
 	MoveTaskUp   key.Binding
 	MoveTaskDown key.Binding
+	DeleteTask   key.Binding
 }
 
 var (
@@ -61,6 +62,10 @@ var (
 			key.WithKeys("shift+down", "J"),
 			key.WithHelp("shift+↓/j", "move task down"),
 		),
+		DeleteTask: key.NewBinding(
+			key.WithKeys("d"),
+			key.WithHelp("d", "delete task"),
+		),
 	}
 )
 
@@ -86,6 +91,7 @@ func (t TaskDelegate) FullHelp() [][]key.Binding {
 		{
 			t.keys.MoveTaskUp,
 			t.keys.MoveTaskDown,
+			t.keys.DeleteTask,
 		},
 	}
 }
@@ -123,9 +129,17 @@ func (t TaskDelegate) Update(msg tea.Msg, ll *list.Model) tea.Cmd {
 			cmds = append(cmds, t.moveTask(ll, -1))
 		case key.Matches(msg, t.keys.MoveTaskDown):
 			cmds = append(cmds, t.moveTask(ll, +1))
+		case key.Matches(msg, t.keys.DeleteTask):
+			cmds = append(cmds, t.deleteTask(ll))
+
 		}
 	}
 	return tea.Batch(cmds...)
+}
+
+func (TaskDelegate) deleteTask(ll *list.Model) tea.Cmd {
+	ll.RemoveItem(ll.GlobalIndex())
+	return nil
 }
 
 func (TaskDelegate) moveTask(ll *list.Model, dir int) tea.Cmd {
