@@ -1,6 +1,8 @@
 package window
 
 import (
+	"fmt"
+
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 )
@@ -15,6 +17,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.WindowSizeMsg:
 		m.height, m.width = msg.Height, msg.Width
+	case TaskChangedMsg:
+		m.list.Title = fmt.Sprintf("Task \"%s\" %s!", msg.After.imperative, msg.After.status)
 	}
 
 	var cmd tea.Cmd
