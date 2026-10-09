@@ -20,6 +20,7 @@ type taskDelegateKeyMap struct {
 	MoveTaskUp   key.Binding
 	MoveTaskDown key.Binding
 	DeleteTask   key.Binding
+	NewTask      key.Binding
 }
 
 var (
@@ -66,6 +67,10 @@ var (
 			key.WithKeys("d"),
 			key.WithHelp("d", "delete task"),
 		),
+		NewTask: key.NewBinding(
+			key.WithKeys("n"),
+			key.WithHelp("n", "new task"),
+		),
 	}
 )
 
@@ -91,6 +96,7 @@ func (t TaskDelegate) FullHelp() [][]key.Binding {
 		{
 			t.keys.MoveTaskUp,
 			t.keys.MoveTaskDown,
+			t.keys.NewTask,
 			t.keys.DeleteTask,
 		},
 	}
@@ -131,7 +137,8 @@ func (t TaskDelegate) Update(msg tea.Msg, ll *list.Model) tea.Cmd {
 			cmds = append(cmds, t.moveTask(ll, +1))
 		case key.Matches(msg, t.keys.DeleteTask):
 			cmds = append(cmds, t.deleteTask(ll))
-
+		case key.Matches(msg, t.keys.NewTask):
+			cmds = append(cmds, t.newTask(ll))
 		}
 	}
 	return tea.Batch(cmds...)
@@ -152,6 +159,12 @@ func (TaskDelegate) moveTask(ll *list.Model, dir int) tea.Cmd {
 	ll.RemoveItem(i)
 	cmd := ll.InsertItem(n, item)
 	ll.Select(n)
+	return cmd
+}
+
+func (TaskDelegate) newTask(ll *list.Model) tea.Cmd {
+	cmd := ll.InsertItem(ll.GlobalIndex()+1, Task{status: Incomplete, imperative: "Define this new task"})
+	ll.Select(ll.GlobalIndex() + 1)
 	return cmd
 }
 
