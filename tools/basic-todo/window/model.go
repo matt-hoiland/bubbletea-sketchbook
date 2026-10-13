@@ -64,6 +64,7 @@ func New(opts ...Option) *Model {
 	// ll.SetShowPagination(false)
 	ll.InfiniteScrolling = true
 	ll.Paginator.Type = paginator.Arabic
+	ll.DisableQuitKeybindings()
 
 	m := &Model{
 		keys: keys,

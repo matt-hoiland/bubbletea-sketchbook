@@ -13,8 +13,8 @@ var keys = keyMap{
 		key.WithHelp("?", "help"),
 	),
 	ExitProgram: key.NewBinding(
-		key.WithKeys("q"),
-		key.WithHelp("q", "exit"),
+		key.WithKeys("ctrl+c"),
+		key.WithHelp("ctrl+c", "exit"),
 	),
 }
 

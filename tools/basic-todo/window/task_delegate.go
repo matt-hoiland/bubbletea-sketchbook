@@ -7,6 +7,7 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
+	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	catppuccingo "github.com/catppuccin/go"
@@ -21,6 +22,9 @@ type taskDelegateKeyMap struct {
 	MoveTaskDown key.Binding
 	DeleteTask   key.Binding
 	NewTask      key.Binding
+	EditTask     key.Binding
+	ConfirmEdit  key.Binding
+	CancelEdit   key.Binding
 }
 
 var (
@@ -71,21 +75,43 @@ var (
 			key.WithKeys("n"),
 			key.WithHelp("n", "new task"),
 		),
+		EditTask: key.NewBinding(
+			key.WithKeys("e"),
+			key.WithHelp("e", "edit task"),
+		),
+		ConfirmEdit: key.NewBinding(
+			key.WithKeys("enter"),
+			key.WithHelp("enter", "confirm"),
+			key.WithDisabled(),
+		),
+		CancelEdit: key.NewBinding(
+			key.WithKeys("esc"),
+			key.WithHelp("esc", "cancel"),
+			key.WithDisabled(),
+		),
 	}
 )
 
 type TaskDelegate struct {
 	keys taskDelegateKeyMap
+
+	editor       textinput.Model
+	editorActive bool
 }
 
-func NewTaskDelegate() TaskDelegate {
-	return TaskDelegate{
-		keys: taskDelegateKeys,
+func NewTaskDelegate() *TaskDelegate {
+	editor := textinput.New()
+	editor.Prompt = ""
+
+	return &TaskDelegate{
+		keys:         taskDelegateKeys,
+		editor:       editor,
+		editorActive: false,
 	}
 }
 
 // FullHelp implements [help.KeyMap].
-func (t TaskDelegate) FullHelp() [][]key.Binding {
+func (t *TaskDelegate) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{
 			t.keys.CompleteTask,
@@ -98,58 +124,117 @@ func (t TaskDelegate) FullHelp() [][]key.Binding {
 			t.keys.MoveTaskDown,
 			t.keys.NewTask,
 			t.keys.DeleteTask,
+			t.keys.EditTask,
+			t.keys.ConfirmEdit,
+			t.keys.CancelEdit,
 		},
 	}
 }
 
 // ShortHelp implements [help.KeyMap].
-func (t TaskDelegate) ShortHelp() []key.Binding {
+func (t *TaskDelegate) ShortHelp() []key.Binding {
 	return []key.Binding{
 		t.keys.CompleteTask,
 		t.keys.UndoTask,
 	}
 }
 
-func (TaskDelegate) Height() int {
+func (*TaskDelegate) Height() int {
 	return 1
 }
 
-func (TaskDelegate) Spacing() int {
+func (*TaskDelegate) Spacing() int {
 	return 0
 }
 
-func (t TaskDelegate) Update(msg tea.Msg, ll *list.Model) tea.Cmd {
-	var cmds []tea.Cmd
+func (t *TaskDelegate) Update(msg tea.Msg, ll *list.Model) tea.Cmd {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, t.keys.CompleteTask):
-			cmds = append(cmds, t.setItemStatus(ll, Complete))
+			return t.setItemStatus(ll, Complete)
 		case key.Matches(msg, t.keys.BeginTask):
-			cmds = append(cmds, t.setItemStatus(ll, InProgress))
+			return t.setItemStatus(ll, InProgress)
 		case key.Matches(msg, t.keys.CancelTask):
-			cmds = append(cmds, t.setItemStatus(ll, Cancelled))
+			return t.setItemStatus(ll, Cancelled)
 		case key.Matches(msg, t.keys.UndoTask):
-			cmds = append(cmds, t.setItemStatus(ll, Incomplete))
+			return t.setItemStatus(ll, Incomplete)
 		case key.Matches(msg, t.keys.MoveTaskUp):
-			cmds = append(cmds, t.moveTask(ll, -1))
+			return t.moveTask(ll, -1)
 		case key.Matches(msg, t.keys.MoveTaskDown):
-			cmds = append(cmds, t.moveTask(ll, +1))
+			return t.moveTask(ll, +1)
 		case key.Matches(msg, t.keys.DeleteTask):
-			cmds = append(cmds, t.deleteTask(ll))
+			return t.deleteTask(ll)
 		case key.Matches(msg, t.keys.NewTask):
-			cmds = append(cmds, t.newTask(ll))
+			return t.newTask(ll)
+		case key.Matches(msg, t.keys.EditTask):
+			return t.editTask(ll)
+		case key.Matches(msg, t.keys.ConfirmEdit):
+			return t.confirmEdit(ll)
+		case key.Matches(msg, t.keys.CancelEdit):
+			return t.cancelEdit()
 		}
 	}
-	return tea.Batch(cmds...)
+
+	var cmd tea.Cmd
+	t.editor, cmd = t.editor.Update(msg)
+
+	return cmd
 }
 
-func (TaskDelegate) deleteTask(ll *list.Model) tea.Cmd {
+func (*TaskDelegate) deleteTask(ll *list.Model) tea.Cmd {
 	ll.RemoveItem(ll.GlobalIndex())
 	return nil
 }
 
-func (TaskDelegate) moveTask(ll *list.Model, dir int) tea.Cmd {
+func (t *TaskDelegate) cancelEdit() tea.Cmd {
+	t.editor.Blur()
+	t.activateEditor(false)
+	return nil
+}
+
+func (t *TaskDelegate) confirmEdit(ll *list.Model) tea.Cmd {
+	defer t.cancelEdit()
+	item, ok := ll.SelectedItem().(Task)
+	if !ok {
+		return nil
+	}
+	item.imperative = t.editor.Value()
+	return ll.SetItem(ll.GlobalIndex(), item)
+}
+
+func (t *TaskDelegate) editTask(ll *list.Model) tea.Cmd {
+	item, ok := ll.SelectedItem().(Task)
+	if !ok {
+		return nil
+	}
+
+	t.activateEditor(true)
+
+	t.editor.SetValue(item.imperative)
+	t.editor.CursorEnd()
+	return t.editor.Focus()
+}
+
+func (t *TaskDelegate) activateEditor(active bool) {
+	t.editorActive = active
+
+	// disable many controls
+	t.keys.CompleteTask.SetEnabled(!active)
+	t.keys.UndoTask.SetEnabled(!active)
+	t.keys.BeginTask.SetEnabled(!active)
+	t.keys.CancelTask.SetEnabled(!active)
+	t.keys.MoveTaskDown.SetEnabled(!active)
+	t.keys.MoveTaskUp.SetEnabled(!active)
+	t.keys.EditTask.SetEnabled(!active)
+	t.keys.NewTask.SetEnabled(!active)
+
+	// enable others
+	t.keys.ConfirmEdit.SetEnabled(active)
+	t.keys.CancelEdit.SetEnabled(active)
+}
+
+func (*TaskDelegate) moveTask(ll *list.Model, dir int) tea.Cmd {
 	i := ll.GlobalIndex()
 	if i+dir < 0 || i+dir >= len(ll.Items()) {
 		return nil
@@ -162,13 +247,13 @@ func (TaskDelegate) moveTask(ll *list.Model, dir int) tea.Cmd {
 	return cmd
 }
 
-func (TaskDelegate) newTask(ll *list.Model) tea.Cmd {
+func (*TaskDelegate) newTask(ll *list.Model) tea.Cmd {
 	cmd := ll.InsertItem(ll.GlobalIndex()+1, Task{status: Incomplete, imperative: "Define this new task"})
 	ll.Select(ll.GlobalIndex() + 1)
 	return cmd
 }
 
-func (TaskDelegate) setItemStatus(ll *list.Model, s status) tea.Cmd {
+func (*TaskDelegate) setItemStatus(ll *list.Model, s status) tea.Cmd {
 	i := ll.GlobalIndex()
 	item, ok := ll.SelectedItem().(Task)
 	before := item
@@ -183,25 +268,35 @@ func (TaskDelegate) setItemStatus(ll *list.Model, s status) tea.Cmd {
 	)
 }
 
-func (TaskDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
+func (t *TaskDelegate) Render(w io.Writer, ll list.Model, index int, item list.Item) {
 	task, ok := item.(Task)
 	if !ok {
 		task = Task{status: Incomplete, imperative: "unknown task"}
 	}
 
-	background := catppuccingo.Mocha.Surface0()
+	var (
+		background = catppuccingo.Mocha.Surface0()
+		selector   = catppuccingo.Mocha.Mauve()
+
+		imperative = task.imperative
+	)
+
+	if t.editorActive && index == ll.GlobalIndex() {
+		selector = catppuccingo.Mocha.Peach()
+		imperative = t.editor.View()
+	}
 
 	var (
 		highlight = false
 		box       = lipgloss.NewStyle().PaddingLeft(2)
 	)
-	if index == m.Index() {
+	if index == ll.Index() {
 		highlight = true
 		box = lipgloss.NewStyle().
 			Width(30).
 			Background(background).
 			Border(lipgloss.InnerHalfBlockBorder(), false, false, false, true).
-			BorderForeground(catppuccingo.Mocha.Mauve()).
+			BorderForeground(selector).
 			PaddingLeft(1)
 	}
 	bullet := lipgloss.NewStyle().
@@ -223,7 +318,7 @@ func (TaskDelegate) Render(w io.Writer, m list.Model, index int, item list.Item)
 		bullet.Render(bullets[task.status]),
 		bars.Render("]"),
 		text.Render(" "),
-		text.Render(task.imperative),
+		text.Render(imperative),
 	)
 
 	fmt.Fprint(w, box.Render(str))
