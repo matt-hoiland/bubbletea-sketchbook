@@ -8,7 +8,9 @@ import (
 )
 
 func main() {
-	m := New()
+	m := New(
+		WithWidth(30),
+	)
 	if _, ok := os.LookupEnv("DEBUG"); ok {
 		var err error
 		if m.dump, err = os.Create("message.log"); err != nil {
