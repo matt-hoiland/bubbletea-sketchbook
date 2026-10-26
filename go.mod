@@ -8,6 +8,7 @@ require (
 	charm.land/lipgloss/v2 v2.0.3
 	github.com/catppuccin/go v0.3.0
 	github.com/charmbracelet/x/ansi v0.11.7
+	github.com/davecgh/go-spew v1.1.1
 )
 
 require (
